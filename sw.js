@@ -1,7 +1,7 @@
 /* Service Worker – macht die App offline verfügbar.
    Bei Änderungen an HTML/CSS/JS die CACHE-Version hochzählen. */
 
-const CACHE = 'notizen-v4';
+const CACHE = 'notizen-v5';
 
 const SHELL = [
   './',

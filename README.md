@@ -8,7 +8,7 @@ im Browser des Geräts (IndexedDB) – kein Server, kein Login, keine Übertragu
 
 ```
 index.html              App-Struktur
-style.css               Design-Tokens, Metall-Oberflächen, Light/Dark
+style.css               Design-Tokens (Apple System Design), Light/Dark
 i18n.js                 Texte Deutsch / Englisch
 app.js                  Speicher, Ansichten, Logik
 manifest.webmanifest    Name, Icons, Startverhalten
@@ -29,7 +29,7 @@ Alle Pfade sind relativ, die App läuft also auch im Unterordner einer Domain.
 **Nach jeder Änderung an HTML/CSS/JS** die Cache-Version in `sw.js` hochzählen:
 
 ```js
-const CACHE = 'notizen-v4';   // vorher v3
+const CACHE = 'notizen-v6';   // vorher v5
 ```
 
 Sonst liefert der Service Worker auf installierten Geräten weiter die alte Version.
@@ -108,9 +108,35 @@ Ein Sync zwischen Geräten ist bewusst nicht eingebaut. Dafür bräuchte es ein
 Backend (z. B. Supabase); das lässt sich später ergänzen, ohne die Oberfläche
 zu ändern.
 
+## Tage im Voraus planen
+
+Im Kalender einen künftigen Tag antippen und darunter die Tagesart wählen.
+Geplante Tage bekommen ein kleines Symbol im Raster. So steht vorher fest,
+welche Dailies an dem Tag gelten.
+
+## Schritte aus Apple Health
+
+Eine Website kann HealthKit nicht direkt auslesen – iOS erlaubt das
+ausschließlich nativen Apps. Über die Kurzbefehle-App geht es trotzdem:
+
+1. Kurzbefehle-App öffnen, neuen Kurzbefehl anlegen
+2. Aktion „Gesundheitsdaten abrufen“: Typ **Schritte**, Zeitraum **Heute**,
+   Zusammenfassen **Summe**
+3. Aktion „URL öffnen“ mit dieser URL, das Ergebnis der vorigen Aktion ans Ende:
+   `https://<username>.github.io/<repo>/?steps=`
+4. Unter „Automation“ täglich ausführen lassen
+
+Die App liest den Parameter beim Start, schreibt ihn in das erste Daily mit der
+Einheit Schritte und entfernt den Parameter wieder aus der Adresse. Die genaue
+URL steht auch in der App unter „Mehr → Schritte aus Health“ zum Kopieren.
+
 ## Anpassen
 
-Farben, Radien und die Metall-Verläufe stehen als CSS-Variablen oben in `style.css`
-(`:root` hell, `html[data-theme="dark"]` dunkel). Texte in `i18n.js`, immer in
-beiden Sprachen. Die Startvorschläge für Dailies und Tagesarten in `app.js` unter
-`seedIfEmpty`.
+Farben und Radien stehen als CSS-Variablen oben in `style.css` (`:root` hell,
+`html[data-theme="dark"]` dunkel). Die Palette folgt den Apple System Colors.
+Texte in `i18n.js`, immer in beiden Sprachen. Die Startvorschläge für Dailies und
+Tagesarten in `app.js` unter `seedIfEmpty`.
+
+Bestehende Dailies und Ordner bearbeitest du unter „Mehr“ durch Antippen der
+Zeile: Name, Symbol, Zielwert, Tagesarten und Farbe. Änderungen werden beim
+Tippen gespeichert, ein Farb- oder Tagesklick setzt die Felder nicht zurück.

@@ -148,8 +148,8 @@ const ICONS = {
   bulb:    '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5M10 21h4M12 3a6 6 0 0 1 3.5 10.9V16h-7v-2.1A6 6 0 0 1 12 3Z"/></svg>',
 };
 
-const COLORS = ['--c-blue', '--c-teal', '--c-green', '--c-lime', '--c-orange',
-                '--c-red', '--c-pink', '--c-purple', '--c-slate'];
+const COLORS = ['--c-blue', '--c-teal', '--c-mint', '--c-green', '--c-orange',
+                '--c-red', '--c-pink', '--c-purple', '--c-gray'];
 
 /* --------------------------------------------------------------------------
    3. State
@@ -162,6 +162,7 @@ const state = {
   view: 'today',
   noteQuery: '',
   taskFilter: null,          // Ordner-ID oder null
+  panel: null,               // aufgeklappter Editor in den Einstellungen
   editing: null,
   calMonth: new Date(),
   calSelected: todayKey(),
@@ -185,19 +186,18 @@ async function seedIfEmpty() {
   if (settings.find((s) => s.key === 'seeded')) return;
 
   const dt = [
-    { id: uid(), name: t('seedWork'), glyph: '💼', order: 0 },
-    { id: uid(), name: t('seedUni'),  glyph: '🎓', order: 1 },
-    { id: uid(), name: t('seedFree'), glyph: '🌤️', order: 2 },
+    { id: uid(), name: t('seedStudy'), glyph: '🎓', order: 0 },
+    { id: uid(), name: t('seedWork'),  glyph: '💼', order: 1 },
+    { id: uid(), name: t('seedOff'),   glyph: '🌤️', order: 2 },
   ];
   state.dayTypes = dt;
   for (const x of dt) await dbPut('dayTypes', x);
 
   const all = dt.map((x) => x.id);
   const dailies = [
-    { id: uid(), name: t('seedSport'), glyph: '🏋️', color: '--c-blue',   dayTypes: all, goal: null, unit: '', order: 0 },
-    { id: uid(), name: t('seedRead'),  glyph: '📖', color: '--c-purple', dayTypes: all, goal: null, unit: '', order: 1 },
-    { id: uid(), name: t('seedSteps'), glyph: '👟', color: '--c-green',  dayTypes: all, goal: 7000, unit: t('unitSteps'), order: 2 },
-    { id: uid(), name: t('seedEdit'),  glyph: '🎬', color: '--c-orange', dayTypes: [dt[0].id], goal: null, unit: '', order: 3 },
+    { id: uid(), name: t('seedSteps'),   glyph: '👟', color: '--c-green',  dayTypes: all, goal: 7000, unit: t('unitSteps'), order: 0 },
+    { id: uid(), name: t('seedPushups'), glyph: '💪', color: '--c-orange', dayTypes: all, goal: 100,  unit: t('unitReps'),  order: 1 },
+    { id: uid(), name: t('seedStretch'), glyph: '🧘', color: '--c-purple', dayTypes: all, goal: null, unit: '',             order: 2 },
   ];
   state.dailies = dailies;
   for (const x of dailies) await dbPut('dailies', x);
@@ -580,7 +580,7 @@ function renderToday() {
       const on = dt.id === activeDT;
       html += `
         <button class="bubbleitem ${on ? 'is-active' : ''}" data-daytype="${esc(dt.id)}">
-          <span class="bubble bubble--plain" style="--bc: var(--c-slate); --p: 0">
+          <span class="bubble bubble--plain" style="--bc: var(--c-gray); --p: 0">
             <span class="bubble__ball"></span>
             <span class="bubble__count" style="font-size:24px">${esc(dt.glyph)}</span>
           </span>
@@ -811,7 +811,7 @@ function renderTasks() {
   html += '<div class="bubblerow">';
   html += `
     <button class="bubbleitem ${!filter ? 'is-active' : ''}" data-tagfilter="">
-      <span class="bubble bubble--plain" style="--bc: var(--c-slate); --p: 0">
+      <span class="bubble bubble--plain" style="--bc: var(--c-gray); --p: 0">
         <span class="bubble__ball"></span>
         <span class="bubble__count">${state.tasks.filter((x) => !isTaskComplete(x)).length}</span>
       </span>
@@ -820,7 +820,7 @@ function renderTasks() {
   for (const tag of state.tags) html += bubbleHTML(tag, filter === tag.id);
   html += `
     <button class="bubbleitem" data-goto="more">
-      <span class="bubble bubble--plain" style="--bc: var(--c-slate); --p: 0">
+      <span class="bubble bubble--plain" style="--bc: var(--c-gray); --p: 0">
         <span class="bubble__ball"></span>
         <span class="bubble__count">${ICONS.plus}</span>
       </span>
@@ -1237,13 +1237,15 @@ function renderCalendar() {
     const isFull = score.total > 0 && score.done === score.total && !future;
     if (isFull) fullDays++;
     const dt = state.dayTypes.find((x) => x.id === dayTypeOf(key));
+    const planned = state.dayAssign.has(key);
     grid += `
       <button class="calday ${key === today ? 'is-today' : ''} ${isFull ? 'is-full' : ''}
         ${key === state.calSelected ? 'is-sel' : ''} ${future ? 'calday--future' : ''}"
-        data-calday="${key}" style="--p:${future ? 0 : score.pct}"
+        data-calday="${key}" style="--p:${future ? 0 : score.pct}${dt ? `; --dayc: var(--accent)` : ''}"
         aria-label="${day}. ${dt ? esc(dt.name) : ''}">
         <span class="calday__ring"></span>
         <span class="calday__n">${day}</span>
+        ${future && planned && dt ? `<span class="calday__dt">${esc(dt.glyph)}</span>` : ''}
       </button>`;
   }
 
@@ -1269,7 +1271,9 @@ function renderCalendar() {
   const selList = dailiesFor(sel);
   const selDT = state.dayTypes.find((x) => x.id === dayTypeOf(sel));
 
-  html += `<div class="sectionhead"><h2>${esc(selDate.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' }))}</h2></div>`;
+  const isFuture = sel > todayKey();
+  html += `<div class="sectionhead"><h2>${esc(selDate.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' }))}</h2>${
+    isFuture ? `<span class="sectionhead__action" style="color:var(--text-3)">${t('planAhead')}</span>` : ''}</div>`;
 
   if (state.dayTypes.length > 1) {
     html += '<div class="group"><div class="chipsrow" style="padding-top:12px">' +
@@ -1277,6 +1281,7 @@ function renderCalendar() {
         <button class="togglechip ${dt.id === selDT?.id ? 'is-on' : ''}"
           data-setdaytype="${sel}|${esc(dt.id)}">${esc(dt.glyph)} ${esc(dt.name)}</button>`).join('') +
       '</div></div>';
+    if (sel > todayKey()) html += `<p class="groupnote" style="margin-top:-8px">${t('planAheadHint')}</p>`;
   }
 
   if (!selList.length) {
@@ -1345,23 +1350,79 @@ function swatchesHTML(kind, active) {
       data-swatch="${kind}|${c}" aria-label="${c.replace('--c-', '')}"></button>`).join('') + '</div>';
 }
 
+function dayChipsHTML(kind, selected) {
+  return '<div class="chipsrow">' + state.dayTypes.map((dt) => `
+    <button class="togglechip ${selected.includes(dt.id) ? 'is-on' : ''}"
+      data-daychip="${kind}|${esc(dt.id)}">${esc(dt.glyph)} ${esc(dt.name)}</button>`).join('') + '</div>';
+}
+
+/* Aufgeklappter Editor für ein bestehendes Daily. Änderungen werden beim
+   Tippen gespeichert, Farb- und Tagesklicks fassen die Felder nicht an. */
+function dailyPanelHTML(d) {
+  return `
+    <div class="editpanel">
+      <div class="formrow">
+        <input class="glyph" data-dfield="glyph|${esc(d.id)}" type="text" maxlength="2" value="${esc(d.glyph)}"
+          aria-label="${t('glyphLabel')}">
+        <input class="text" data-dfield="name|${esc(d.id)}" type="text" value="${esc(d.name)}"
+          aria-label="${t('nameLabel')}">
+      </div>
+      <div class="formrow">
+        <input class="num" data-dfield="goal|${esc(d.id)}" type="number" inputmode="numeric" min="1"
+          value="${d.goal ?? ''}" placeholder="${t('dailyGoal')}">
+        <input class="unit" data-dfield="unit|${esc(d.id)}" type="text" value="${esc(d.unit || '')}"
+          placeholder="${t('counterUnitPlaceholder')}">
+      </div>
+      <div class="editpanel__label">${t('showOn')}</div>
+      ${dayChipsHTML('daily:' + d.id, d.dayTypes || [])}
+      <div class="editpanel__label">${t('colorLabel')}</div>
+      ${swatchesHTML('daily:' + d.id, d.color)}
+      <div class="formrow formrow--sep">
+        <button class="textbtn textbtn--danger" data-dailydel="${esc(d.id)}">${t('deleteDaily')}</button>
+        <button class="formrow__go" data-closepanel="1">${t('done')}</button>
+      </div>
+    </div>`;
+}
+
+function tagPanelHTML(tag) {
+  return `
+    <div class="editpanel">
+      <div class="formrow">
+        <input class="text" data-tfield="name|${esc(tag.id)}" type="text" value="${esc(tag.name)}"
+          aria-label="${t('nameLabel')}">
+      </div>
+      <div class="editpanel__label">${t('keywords')}</div>
+      <div class="formrow">
+        <input class="text" data-tfield="keywords|${esc(tag.id)}" type="text"
+          value="${esc((tag.keywords || []).join(', '))}" placeholder="${t('keywordsPlaceholder')}">
+      </div>
+      <div class="editpanel__label">${t('colorLabel')}</div>
+      ${swatchesHTML('tag:' + tag.id, tag.color)}
+      <div class="formrow formrow--sep">
+        <button class="textbtn textbtn--danger" data-tagdel="${esc(tag.id)}">${t('deleteFolder')}</button>
+        <button class="formrow__go" data-closepanel="1">${t('done')}</button>
+      </div>
+    </div>`;
+}
+
 function renderMore() {
   if (!newDaily.dayTypes.length) newDaily.dayTypes = state.dayTypes.map((x) => x.id);
 
   /* Ordner */
   let tagRows = state.tags.map((tag) => {
     const p = tagProgress(tag.id);
+    const open = state.panel === 'tag:' + tag.id;
     return `
-      <div class="editrow">
+      <button class="editrow editrow--btn" data-tagedit="${esc(tag.id)}">
         <span class="editrow__ball" style="--cc: var(${tag.color})"></span>
         <span class="editrow__body">
           <span class="editrow__name">${esc(tag.name)}</span>
-          <span class="editrow__sub">${t('tasksIn', { n: p.total })} · ${
-            tag.keywords?.length ? esc(tag.keywords.join(', ')) : t('keywords').toLowerCase() + ': –'}</span>
+          <span class="editrow__sub">${t('tasksIn', { n: p.total })}${
+            tag.keywords?.length ? ' · ' + esc(tag.keywords.join(', ')) : ''}</span>
         </span>
-        <button class="iconbtn" data-tagedit="${esc(tag.id)}" aria-label="${t('edit')}">${ICONS.chevron}</button>
-        <button class="iconbtn" data-tagdel="${esc(tag.id)}" aria-label="${t('delete')}">${ICONS.trash}</button>
-      </div>`;
+        <span class="row__chev">${ICONS.chevron}</span>
+      </button>
+      ${open ? tagPanelHTML(tag) : ''}`;
   }).join('');
 
   if (!state.tags.length) {
@@ -1372,15 +1433,17 @@ function renderMore() {
   /* Dailies */
   const dailyRows = state.dailies.map((d) => {
     const types = (d.dayTypes || []).map((id) => state.dayTypes.find((x) => x.id === id)?.glyph || '').join(' ');
+    const open = state.panel === 'daily:' + d.id;
     return `
-      <div class="editrow">
+      <button class="editrow editrow--btn" data-dailyedit="${esc(d.id)}">
         <span class="editrow__glyph">${esc(d.glyph)}</span>
         <span class="editrow__body">
           <span class="editrow__name">${esc(d.name)}</span>
-          <span class="editrow__sub">${d.goal ? `${t('dailyGoal')}: ${d.goal}${d.unit ? ' ' + esc(d.unit) : ''} · ` : ''}${types}</span>
+          <span class="editrow__sub">${d.goal ? `${d.goal}${d.unit ? ' ' + esc(d.unit) : ''} · ` : ''}${types}</span>
         </span>
-        <button class="iconbtn" data-dailydel="${esc(d.id)}" aria-label="${t('delete')}">${ICONS.trash}</button>
-      </div>`;
+        <span class="row__chev">${ICONS.chevron}</span>
+      </button>
+      ${open ? dailyPanelHTML(d) : ''}`;
   }).join('') || `<div class="editrow"><span class="editrow__body">
       <span class="editrow__name" style="color:var(--text-3)">${t('noDailies')}</span></span></div>`;
 
@@ -1389,8 +1452,10 @@ function renderMore() {
     <div class="editrow">
       <span class="editrow__glyph">${esc(dt.glyph)}</span>
       <span class="editrow__body"><span class="editrow__name">${esc(dt.name)}</span></span>
-      <button class="iconbtn" data-dtdel="${esc(dt.id)}" aria-label="${t('delete')}">${ICONS.trash}</button>
+      <button class="iconbtn iconbtn--danger" data-dtdel="${esc(dt.id)}" aria-label="${t('delete')}">${ICONS.trash}</button>
     </div>`).join('');
+
+  const healthUrl = location.origin + location.pathname + '?steps=';
 
   $('#view-more').innerHTML = `
     <h1 class="largetitle">${t('more')}</h1>
@@ -1399,48 +1464,65 @@ function renderMore() {
     <div class="grouplabel">${t('folders')}</div>
     <div class="group">
       ${tagRows}
-      <div class="formrow">
+      <div class="formrow formrow--sep">
         <input class="text" id="tag-name" type="text" placeholder="${t('newFolder')}" enterkeyhint="done">
         <button class="formrow__go" id="tag-add">${t('add')}</button>
       </div>
-      <div class="formrow" style="border-top:0; padding-top:0">
+      <div class="formrow">
         <input class="text" id="tag-keywords" type="text" placeholder="${t('keywordsPlaceholder')}">
       </div>
-      ${swatchesHTML('tag', newTag.color)}
+      ${swatchesHTML('newtag', newTag.color)}
     </div>
     <p class="groupnote">${t('keywordsHint')}</p>
 
     <div class="grouplabel">${t('dayTypes')}</div>
     <div class="group">
       ${dtRows}
-      <div class="formrow">
+      <div class="formrow formrow--sep">
         <input class="glyph" id="dt-glyph" type="text" maxlength="2" placeholder="📅">
         <input class="text" id="dt-name" type="text" placeholder="${t('newDayType')}" enterkeyhint="done">
         <button class="formrow__go" id="dt-add">${t('add')}</button>
       </div>
     </div>
-    <p class="groupnote">${t('dayTypesHint')}</p>
+    <p class="groupnote">${t('dayTypesHint')} ${t('planAheadHint')}</p>
 
     <div class="grouplabel">${t('dailies')}</div>
     <div class="group">
       ${dailyRows}
-      <div class="formrow">
+      <div class="formrow formrow--sep">
         <input class="glyph" id="daily-glyph" type="text" maxlength="2" placeholder="✳️">
         <input class="text" id="daily-name" type="text" placeholder="${t('newDaily')}" enterkeyhint="done">
         <button class="formrow__go" id="daily-add">${t('add')}</button>
       </div>
-      <div class="formrow" style="border-top:0; padding-top:0">
+      <div class="formrow">
         <input class="num" id="daily-goal" type="number" inputmode="numeric" placeholder="${t('dailyGoal')}" min="1">
         <input class="unit" id="daily-unit" type="text" placeholder="${t('counterUnitPlaceholder')}">
       </div>
-      <div class="chipsrow">
-        ${state.dayTypes.map((dt) => `
-          <button class="togglechip ${newDaily.dayTypes.includes(dt.id) ? 'is-on' : ''}"
-            data-newdailydt="${esc(dt.id)}">${esc(dt.glyph)} ${esc(dt.name)}</button>`).join('')}
-      </div>
-      ${swatchesHTML('daily', newDaily.color)}
+      <div class="editpanel__label">${t('showOn')}</div>
+      ${dayChipsHTML('newdaily', newDaily.dayTypes)}
+      <div class="editpanel__label">${t('colorLabel')}</div>
+      ${swatchesHTML('newdaily', newDaily.color)}
     </div>
     <p class="groupnote">${t('dailyGoalHint')}</p>
+
+    <div class="grouplabel">${t('health')}</div>
+    <div class="group">
+      <div class="row" style="display:block">
+        <p style="margin:0 0 10px; font-size:13.5px; color:var(--text-2); line-height:1.5">${t('healthHint')}</p>
+        <ol style="margin:0; padding-left:20px; font-size:13.5px; color:var(--text-2); line-height:1.6">
+          <li>${t('healthStep1')}</li>
+          <li>${t('healthStep2')}</li>
+          <li>${t('healthStep3')}
+            <code style="display:block; margin:6px 0; padding:8px 10px; background:var(--fill-1);
+              border-radius:8px; font-size:12px; word-break:break-all">${esc(healthUrl)}</code>
+          </li>
+          <li>${t('healthStep4')}</li>
+        </ol>
+      </div>
+      <button class="row row--btn" id="copy-health">
+        <span class="row__label" style="color:var(--accent)">${t('copyUrl')}</span>
+      </button>
+    </div>
 
     <div class="grouplabel">${t('backup')}</div>
     <div class="group">
@@ -1468,12 +1550,35 @@ function renderMore() {
       <button class="row row--btn row--danger" id="wipe-btn"><span class="row__label">${t('wipe')}</span></button>
     </div>`;
 
-  wireMore();
+  wireMore(healthUrl);
   reportStorage();
 }
 
-function wireMore() {
-  /* Ordner anlegen */
+/* Aktualisiert nur die Kopfzeile eines aufgeklappten Eintrags. Ein
+   vollständiges renderMore() würde die Eingabefelder zurücksetzen. */
+function refreshMoreRow(kind, id) {
+  if (kind === 'daily') {
+    const d = state.dailies.find((x) => x.id === id);
+    const row = $(`[data-dailyedit="${id}"]`);
+    if (!d || !row) return;
+    const types = (d.dayTypes || []).map((tid) => state.dayTypes.find((x) => x.id === tid)?.glyph || '').join(' ');
+    $('.editrow__glyph', row).textContent = d.glyph;
+    $('.editrow__name', row).textContent = d.name;
+    $('.editrow__sub', row).textContent =
+      (d.goal ? `${d.goal}${d.unit ? ' ' + d.unit : ''} · ` : '') + types;
+  } else {
+    const tag = findTag(id);
+    const row = $(`[data-tagedit="${id}"]`);
+    if (!tag || !row) return;
+    const p = tagProgress(tag.id);
+    $('.editrow__ball', row).style.setProperty('--cc', `var(${tag.color})`);
+    $('.editrow__name', row).textContent = tag.name;
+    $('.editrow__sub', row).textContent =
+      t('tasksIn', { n: p.total }) + (tag.keywords?.length ? ' · ' + tag.keywords.join(', ') : '');
+  }
+}
+
+function wireMore(healthUrl) {
   const addTagNow = async () => {
     const name = $('#tag-name').value.trim();
     if (!name) { $('#tag-name').focus(); return; }
@@ -1485,7 +1590,6 @@ function wireMore() {
   $('#tag-add').addEventListener('click', addTagNow);
   $('#tag-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addTagNow(); } });
 
-  /* Tagesart anlegen */
   const addDT = async () => {
     const name = $('#dt-name').value.trim();
     if (!name) { $('#dt-name').focus(); return; }
@@ -1496,7 +1600,6 @@ function wireMore() {
   $('#dt-add').addEventListener('click', addDT);
   $('#dt-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addDT(); } });
 
-  /* Daily anlegen */
   const addD = async () => {
     const name = $('#daily-name').value.trim();
     if (!name) { $('#daily-name').focus(); return; }
@@ -1515,6 +1618,11 @@ function wireMore() {
   $('#daily-add').addEventListener('click', addD);
   $('#daily-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addD(); } });
 
+  $('#copy-health')?.addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(healthUrl); toast(t('copied')); }
+    catch (e) { toast(healthUrl); }
+  });
+
   $('#export-btn').addEventListener('click', exportData);
   $('#import-btn').addEventListener('click', () => $('#import-file').click());
 
@@ -1523,7 +1631,7 @@ function wireMore() {
     await Promise.all(STORES.map(dbClear));
     Object.assign(state, {
       dailies: [], tasks: [], notes: [], tags: [], dayTypes: [], atts: [],
-      logs: new Map(), dayAssign: new Map(), taskFilter: null,
+      logs: new Map(), dayAssign: new Map(), taskFilter: null, panel: null,
     });
     attUrls.clear();
     renderAll();
@@ -1886,37 +1994,71 @@ function initDelegation() {
     }
 
     /* Einstellungen */
+    /* Farbe wählen. Bewusst ohne renderMore(): so bleiben getippte
+       Texte in den Feldern stehen. */
     if ((el = hit('[data-swatch]'))) {
       const [kind, color] = el.dataset.swatch.split('|');
-      if (kind === 'tag') newTag.color = color; else newDaily.color = color;
+      el.parentElement.querySelectorAll('.swatch').forEach((s) => {
+        s.classList.toggle('is-on', s === el);
+      });
+      if (kind === 'newtag') newTag.color = color;
+      else if (kind === 'newdaily') newDaily.color = color;
+      else if (kind.startsWith('daily:')) {
+        const d = state.dailies.find((x) => x.id === kind.slice(6));
+        if (d) { d.color = color; await dbPut('dailies', d); renderToday(); renderCalendar(); refreshMoreRow('daily', d.id); }
+      } else if (kind.startsWith('tag:')) {
+        const tag = findTag(kind.slice(4));
+        if (tag) { tag.color = color; await saveTag(tag); renderTasks(); renderNotes(); refreshMoreRow('tag', tag.id); }
+      }
+      return;
+    }
+
+    /* Tagesart an-/abwählen, ebenfalls ohne Neu-Rendern */
+    if ((el = hit('[data-daychip]'))) {
+      const [kind, dtId] = el.dataset.daychip.split('|');
+      const on = !el.classList.contains('is-on');
+      el.classList.toggle('is-on', on);
+      if (kind === 'newdaily') {
+        newDaily.dayTypes = on
+          ? [...new Set([...newDaily.dayTypes, dtId])]
+          : newDaily.dayTypes.filter((x) => x !== dtId);
+      } else if (kind.startsWith('daily:')) {
+        const d = state.dailies.find((x) => x.id === kind.slice(6));
+        if (d) {
+          d.dayTypes = on
+            ? [...new Set([...(d.dayTypes || []), dtId])]
+            : (d.dayTypes || []).filter((x) => x !== dtId);
+          await dbPut('dailies', d);
+          renderToday(); renderCalendar(); refreshMoreRow('daily', d.id);
+        }
+      }
+      return;
+    }
+
+    if ((el = hit('[data-closepanel]'))) {
+      state.panel = null;
       renderMore();
       return;
     }
 
-    if ((el = hit('[data-newdailydt]'))) {
-      const id = el.dataset.newdailydt;
-      newDaily.dayTypes = newDaily.dayTypes.includes(id)
-        ? newDaily.dayTypes.filter((x) => x !== id) : [...newDaily.dayTypes, id];
+    if ((el = hit('[data-dailyedit]'))) {
+      const key = 'daily:' + el.dataset.dailyedit;
+      state.panel = state.panel === key ? null : key;
       renderMore();
       return;
     }
 
     if ((el = hit('[data-tagedit]'))) {
-      const tag = findTag(el.dataset.tagedit);
-      if (!tag) return;
-      const name = prompt(t('folderName'), tag.name);
-      if (name === null) return;
-      if (name.trim()) tag.name = name.trim();
-      const kw = prompt(t('keywords'), (tag.keywords || []).join(', '));
-      if (kw !== null) tag.keywords = splitKeywords(kw);
-      await saveTag(tag);
-      renderMore(); renderTasks();
+      const key = 'tag:' + el.dataset.tagedit;
+      state.panel = state.panel === key ? null : key;
+      renderMore();
       return;
     }
 
     if ((el = hit('[data-tagdel]'))) {
       const tag = findTag(el.dataset.tagdel);
       if (tag && confirm(t('confirmDeleteFolder', { name: tag.name }))) {
+        state.panel = null;
         await deleteTag(tag.id);
         renderMore(); renderTasks(); renderNotes();
         toast(t('deleted'));
@@ -1927,6 +2069,7 @@ function initDelegation() {
     if ((el = hit('[data-dailydel]'))) {
       const d = state.dailies.find((x) => x.id === el.dataset.dailydel);
       if (d && confirm(t('confirmDeleteDaily', { name: d.name }))) {
+        state.panel = null;
         await removeDaily(d.id);
         renderMore(); renderToday(); renderCalendar();
         toast(t('deleted'));
@@ -1941,6 +2084,37 @@ function initDelegation() {
         renderMore(); renderToday(); renderCalendar();
         toast(t('deleted'));
       }
+      return;
+    }
+  });
+
+  /* Felder in den aufgeklappten Editoren */
+  document.addEventListener('input', async (e) => {
+    const dEl = e.target.closest('[data-dfield]');
+    if (dEl) {
+      const [field, id] = dEl.dataset.dfield.split('|');
+      const d = state.dailies.find((x) => x.id === id);
+      if (!d) return;
+      if (field === 'goal') d.goal = parseInt(dEl.value, 10) || null;
+      else if (field === 'name') d.name = dEl.value;
+      else if (field === 'glyph') d.glyph = dEl.value || '✳️';
+      else if (field === 'unit') d.unit = dEl.value;
+      await dbPut('dailies', d);
+      refreshMoreRow('daily', id);
+      renderToday(); renderCalendar();
+      return;
+    }
+
+    const tEl = e.target.closest('[data-tfield]');
+    if (tEl) {
+      const [field, id] = tEl.dataset.tfield.split('|');
+      const tag = findTag(id);
+      if (!tag) return;
+      if (field === 'name') tag.name = tEl.value;
+      else if (field === 'keywords') tag.keywords = splitKeywords(tEl.value);
+      await saveTag(tag);
+      refreshMoreRow('tag', id);
+      renderTasks(); renderNotes();
       return;
     }
   });
@@ -1999,6 +2173,25 @@ function renderAll() {
   renderToday(); renderTasks(); renderNotes(); renderCalendar(); renderMore();
 }
 
+/* Übernimmt Schritte aus einem Kurzbefehl: ?steps=7412
+   Der Wert landet im ersten Daily, dessen Einheit auf Schritte lautet. */
+async function importFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const raw = params.get('steps');
+  if (raw === null) return;
+
+  const value = parseInt(raw, 10);
+  history.replaceState(null, '', location.pathname);   // Parameter wieder entfernen
+  if (!Number.isFinite(value) || value < 0) return;
+
+  const target = state.dailies.find((d) =>
+    /schritt|step/i.test(d.unit || '') || /schritt|step/i.test(d.name || ''));
+  if (!target) return;
+
+  await setDailyValue(target.id, value);
+  toast(t('healthImported', { n: value.toLocaleString(locale()) }));
+}
+
 async function boot() {
   let savedTheme = 'light', savedLang = null;
   try {
@@ -2021,6 +2214,8 @@ async function boot() {
 
   try { await loadState(); }
   catch (err) { console.error(err); toast('Storage error'); }
+
+  await importFromUrl();
 
   renderAll();
   switchView('today');

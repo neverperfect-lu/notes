@@ -82,9 +82,30 @@ const I18N = {
     added: 'Hinzugefügt', deleted: 'Gelöscht',
 
     /* Standardwerte */
-    seedWork: 'Arbeitstag', seedUni: 'Uni-Tag', seedFree: 'Freizeit',
-    seedSport: 'Sport', seedRead: 'Lesen', seedSteps: 'Schritte', seedEdit: 'Editing',
-    unitSteps: 'Schritte',
+    seedStudy: 'Uni-Tag', seedWork: 'Arbeitstag', seedOff: 'Freier Tag',
+    seedSteps: 'Schritte', seedPushups: 'Liegestütze', seedStretch: 'Dehnen',
+    unitSteps: 'Schritte', unitReps: 'Wdh.',
+
+    /* Planung */
+    planAhead: 'Tage im Voraus planen',
+    planAheadHint: 'Tippe einen künftigen Tag an und wähle darunter die Tagesart. So steht schon vorher fest, welche Dailies an dem Tag gelten.',
+    planned: 'Tagesart gesetzt',
+
+    /* Health */
+    health: 'Schritte aus Health',
+    healthHint: 'Apple Health lässt sich von einer Website nicht direkt auslesen – das erlaubt iOS nur nativen Apps. Über die Kurzbefehle-App geht es trotzdem: Sie liest die Schritte und ruft die App mit dem Wert auf.',
+    healthShow: 'Anleitung anzeigen',
+    healthStep1: 'Kurzbefehle-App öffnen, neuen Kurzbefehl anlegen.',
+    healthStep2: 'Aktion „Gesundheitsdaten abrufen“ hinzufügen, Typ Schritte, Zeitraum Heute, Zusammenfassen Summe.',
+    healthStep3: 'Aktion „URL öffnen“ hinzufügen und diese URL eintragen, mit dem Ergebnis der vorigen Aktion am Ende:',
+    healthStep4: 'Unter Automation täglich ausführen lassen – die App trägt den Wert dann selbst ein.',
+    healthImported: '{n} Schritte übernommen',
+    copied: 'Kopiert', copyUrl: 'URL kopieren',
+
+    /* Bearbeiten */
+    editDaily: 'Daily bearbeiten', editFolder: 'Ordner bearbeiten',
+    nameLabel: 'Name', glyphLabel: 'Symbol', colorLabel: 'Farbe',
+    changesSaved: 'Gespeichert',
   },
 
   en: {
@@ -159,9 +180,27 @@ const I18N = {
     confirmImport: 'Restore backup? Existing data will be replaced.',
     added: 'Added', deleted: 'Deleted',
 
-    seedWork: 'Work day', seedUni: 'Study day', seedFree: 'Day off',
-    seedSport: 'Workout', seedRead: 'Reading', seedSteps: 'Steps', seedEdit: 'Editing',
-    unitSteps: 'steps',
+    seedStudy: 'Study day', seedWork: 'Work day', seedOff: 'Day off',
+    seedSteps: 'Steps', seedPushups: 'Push-ups', seedStretch: 'Stretching',
+    unitSteps: 'steps', unitReps: 'reps',
+
+    planAhead: 'Plan days ahead',
+    planAheadHint: 'Tap a future day and pick its day type below. That way you know in advance which dailies apply.',
+    planned: 'Day type set',
+
+    health: 'Steps from Health',
+    healthHint: 'A website cannot read Apple Health directly – iOS only allows that for native apps. The Shortcuts app can do it: it reads your steps and opens this app with the value.',
+    healthShow: 'Show instructions',
+    healthStep1: 'Open the Shortcuts app and create a new shortcut.',
+    healthStep2: 'Add the action “Find Health Samples”, type Steps, period Today, aggregate Sum.',
+    healthStep3: 'Add the action “Open URL” and enter this URL with the previous result at the end:',
+    healthStep4: 'Run it daily via Automation – the app then fills in the value by itself.',
+    healthImported: '{n} steps imported',
+    copied: 'Copied', copyUrl: 'Copy URL',
+
+    editDaily: 'Edit daily', editFolder: 'Edit folder',
+    nameLabel: 'Name', glyphLabel: 'Symbol', colorLabel: 'Colour',
+    changesSaved: 'Saved',
   },
 };
 
